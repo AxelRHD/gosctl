@@ -1,10 +1,8 @@
 <p align="center">
-  <img src="gosctl-logo.png" alt="gosctl logo">
+  <img src="gosctl-logo.png" alt="gosctl logo" width="440">
 </p>
 
-<h1 align="center">gosctl</h1>
-
-**Remote service control over SSH** — Execute commands and predefined tasks on remote hosts with a simple, declarative configuration.
+<p align="center"><strong>Remote service control over SSH</strong><br>Execute commands and predefined tasks on remote hosts with a simple, declarative configuration.</p>
 
 ## Features
 
