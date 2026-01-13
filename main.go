@@ -10,14 +10,11 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-var (
-	appVersion = "dev"
-	gitVersion = "unknown"
-)
+var appVersion = "dev"
 
 func main() {
 	cli.VersionPrinter = func(cmd *cli.Command) {
-		fmt.Printf("gosctl %s (git: %s)\n", appVersion, gitVersion)
+		fmt.Printf("gosctl %s\n", appVersion)
 	}
 
 	app := &cli.Command{
