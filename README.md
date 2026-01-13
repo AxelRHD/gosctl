@@ -1,13 +1,8 @@
-```
-                         _   _
-   __ _  ___  ___   ___| |_| |
-  / _` |/ _ \/ __| / __| __| |
- | (_| | (_) \__ \| (__| |_| |
-  \__, |\___/|___/ \___|\__|_|
-  |___/
-```
+<p align="center">
+  <img src="logo.svg" alt="gosctl logo" width="400">
+</p>
 
-# gosctl
+<h1 align="center">gosctl</h1>
 
 **Remote service control over SSH** — Execute commands and predefined tasks on remote hosts with a simple, declarative configuration.
 
