@@ -29,7 +29,7 @@ steps = ["echo hello", "echo world"]
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
-	cfg, err := loadConfig(configPath)
+	cfg, err := loadConfig(configPath, "")
 	if err != nil {
 		t.Fatalf("loadConfig failed: %v", err)
 	}
@@ -77,7 +77,7 @@ steps = ["echo hello", "echo world"]
 }
 
 func TestLoadConfigMissingFile(t *testing.T) {
-	_, err := loadConfig("/nonexistent/path/config.toml")
+	_, err := loadConfig("/nonexistent/path/config.toml", "")
 	if err == nil {
 		t.Error("expected error for missing config file")
 	}
@@ -91,7 +91,7 @@ func TestLoadConfigInvalidTOML(t *testing.T) {
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
-	_, err := loadConfig(configPath)
+	_, err := loadConfig(configPath, "")
 	if err == nil {
 		t.Error("expected error for invalid TOML")
 	}

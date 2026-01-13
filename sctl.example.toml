@@ -35,9 +35,27 @@ steps = [
     "systemctl --user restart app",
 ]
 
+# Task with before/after dependencies
+[tasks.deploy-safe]
+hosts = ["web1", "web2"]
+before = ["backup-db"]           # Run backup first
+workdir = "/var/www/app"
+steps = [
+    "git pull origin main",
+    "npm install --production",
+    "systemctl --user restart app",
+]
+after = ["notify-slack"]         # Notify after completion
+
 [tasks.backup-db]
 host = "dbserver"
 steps = [
     "pg_dump mydb > /backup/mydb-$(date +%Y%m%d).sql",
     "gzip /backup/mydb-$(date +%Y%m%d).sql",
+]
+
+[tasks.notify-slack]
+host = "web1"
+steps = [
+    "curl -X POST -d 'Deployment complete' https://hooks.slack.com/...",
 ]

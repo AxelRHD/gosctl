@@ -79,29 +79,47 @@ steps = ["journalctl --user -u myapp -f"]
 
 ```bash
 gosctl run deploy
-# → Running on web1...
-#   → [1/3] git pull origin main
-#   → [2/3] npm install --production
-#   → [3/3] systemctl --user restart myapp
-#   ✓ web1 completed
-# → Running on web2...
-#   → [1/3] git pull origin main
-#   → [2/3] npm install --production
-#   → [3/3] systemctl --user restart myapp
-#   ✓ web2 completed
-# ✓ Task completed on 2 hosts
+#   [H] web1
+#     > [1/3] git pull origin main
+#     > [2/3] npm install --production
+#     > [3/3] systemctl --user restart myapp
+#     [ok] web1 done
+#   [H] web2
+#     > [1/3] git pull origin main
+#     > [2/3] npm install --production
+#     > [3/3] systemctl --user restart myapp
+#     [ok] web2 done
+# [OK] Task completed on 2 hosts
 ```
 
 ## Configuration
 
-gosctl loads configuration hierarchically:
+### Hierarchical loading
+
+By default, gosctl merges configuration from two files:
 
 | Order | File | Purpose |
 |-------|------|---------|
-| 1 | `~/.config/gosctl/sctl.toml` | Global hosts and tasks |
-| 2 | `./sctl.toml` | Project-specific hosts and tasks |
+| 1 | `~/.config/gosctl/sctl.toml` | Global hosts (shared across projects) |
+| 2 | `./sctl.toml` | Project-specific tasks and host overrides |
 
-**Merge behavior:** Both files can define hosts and tasks. Local definitions override global ones with the same name. This allows you to define shared hosts globally and project-specific tasks (or host overrides) locally.
+Local definitions override global ones with the same name. This allows you to define shared hosts globally and project-specific tasks locally.
+
+### Config flags
+
+| Flag | Description |
+|------|-------------|
+| `--file`, `-f` | Use a different local file instead of `./sctl.toml`. Global config is still loaded and merged. |
+| `--config`, `-c` | Load **only** this file. Skips hierarchical loading entirely (no global config). |
+
+**Examples:**
+```bash
+# Use project.toml instead of ./sctl.toml (global hosts still available)
+gosctl -f project.toml run deploy
+
+# Load only this file, ignore global config
+gosctl -c /path/to/standalone.toml hosts
+```
 
 ### Host options
 
@@ -133,6 +151,31 @@ steps = ["git pull", "systemctl restart app"]
 
 > **Note:** Use either `host` or `hosts`, not both.
 
+### Task dependencies
+
+Tasks can reference other tasks using `before` and `after`:
+
+```toml
+[tasks.deploy]
+hosts = ["web1", "web2"]
+before = ["backup-db"]     # Run these tasks first
+steps = ["git pull", "systemctl restart app"]
+after = ["notify-slack"]   # Run these tasks after completion
+
+[tasks.backup-db]
+host = "dbserver"
+steps = ["pg_dump mydb > /backup/mydb.sql"]
+
+[tasks.notify-slack]
+host = "web1"
+steps = ["curl -X POST https://hooks.slack.com/..."]
+```
+
+If a before/after task runs on different hosts, a warning is shown:
+```
+[!] Note: backup-db runs on different host(s): dbserver
+```
+
 ## Commands
 
 | Command | Description |
@@ -140,7 +183,9 @@ steps = ["git pull", "systemctl restart app"]
 | `gosctl exec -H <host> "<cmd>"` | Execute a single command on a host |
 | `gosctl run <task>` | Run a predefined task |
 | `gosctl run <task> -H host1 -H host2` | Run task on specific hosts (overrides config) |
-| `gosctl hosts` | List all configured hosts |
+| `gosctl hosts` | List all configured hosts (shows source: global/local/override) |
+| `gosctl tasks` | List all configured tasks (shows source: global/local/override) |
+| `gosctl check-config` | Validate configuration files |
 | `gosctl completion <shell>` | Generate shell completions |
 
 ## Shell Completions

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
+	"strings"
 
 	"github.com/urfave/cli/v3"
 )
@@ -27,7 +29,12 @@ func main() {
 			&cli.StringFlag{
 				Name:    "config",
 				Aliases: []string{"c"},
-				Usage:   "config file path",
+				Usage:   "load only this file, skip global + local merging",
+			},
+			&cli.StringFlag{
+				Name:    "file",
+				Aliases: []string{"f"},
+				Usage:   "use instead of ./sctl.toml (global config still loaded)",
 			},
 		},
 		Commands: []*cli.Command{
@@ -63,17 +70,27 @@ func main() {
 				Usage:  "List configured hosts",
 				Action: hostsAction,
 			},
+			{
+				Name:   "tasks",
+				Usage:  "List configured tasks",
+				Action: tasksAction,
+			},
+			{
+				Name:   "check-config",
+				Usage:  "Validate configuration files",
+				Action: checkConfigAction,
+			},
 		},
 	}
 
 	if err := app.Run(context.Background(), os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
 func execAction(ctx context.Context, cmd *cli.Command) error {
-	cfg, err := loadConfig(cmd.String("config"))
+	cfg, err := loadConfig(cmd.String("config"), cmd.String("file"))
 	if err != nil {
 		return err
 	}
@@ -81,42 +98,47 @@ func execAction(ctx context.Context, cmd *cli.Command) error {
 	hostName := cmd.String("host")
 	host, ok := cfg.Hosts[hostName]
 	if !ok {
-		return fmt.Errorf("host %q not found in config", hostName)
+		return errorf("host %q not found in config", hostName)
 	}
 
 	client, err := newSSHClient(host)
 	if err != nil {
-		return fmt.Errorf("ssh connection failed: %w", err)
+		return errorf("ssh connection failed: %w", err)
 	}
 	defer client.Close()
 
 	command := cmd.Args().First()
 	if command == "" {
-		return fmt.Errorf("no command provided")
+		return errorf("no command provided")
 	}
 
 	return client.Run(command)
 }
 
 func runAction(ctx context.Context, cmd *cli.Command) error {
-	cfg, err := loadConfig(cmd.String("config"))
+	cfg, err := loadConfig(cmd.String("config"), cmd.String("file"))
 	if err != nil {
 		return err
 	}
 
 	taskName := cmd.Args().First()
 	if taskName == "" {
-		return fmt.Errorf("no task name provided")
+		return errorf("no task name provided")
 	}
 
 	task, ok := cfg.Tasks[taskName]
 	if !ok {
-		return fmt.Errorf("task %q not found in config", taskName)
+		return errorf("task %q not found in config", taskName)
 	}
 
 	// Validate task config
 	if err := task.Validate(taskName); err != nil {
-		return err
+		return errorf("%v", err)
+	}
+
+	// Validate task references
+	if err := task.ValidateRefs(taskName, cfg.Tasks); err != nil {
+		return errorf("%v", err)
 	}
 
 	// Use CLI hosts if provided, otherwise use task config
@@ -125,11 +147,19 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 		hostNames = task.GetHosts()
 	}
 
-	// Run on each host sequentially
+	// Execute before tasks
+	for _, beforeName := range task.Before {
+		beforeTask := cfg.Tasks[beforeName]
+		if err := executeTask(cfg, beforeName, beforeTask, hostNames); err != nil {
+			return err
+		}
+	}
+
+	// Run main task on each host
 	for _, hostName := range hostNames {
 		host, ok := cfg.Hosts[hostName]
 		if !ok {
-			return fmt.Errorf("host %q not found in config", hostName)
+			return errorf("host %q not found in config", hostName)
 		}
 
 		if err := runTaskOnHost(host, hostName, task, len(hostNames) > 1); err != nil {
@@ -137,22 +167,62 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	if len(hostNames) > 1 {
-		fmt.Printf("✓ Task completed on %d hosts\n", len(hostNames))
-	} else {
-		fmt.Println("✓ Task completed")
+	// Execute after tasks
+	for _, afterName := range task.After {
+		afterTask := cfg.Tasks[afterName]
+		if err := executeTask(cfg, afterName, afterTask, hostNames); err != nil {
+			return err
+		}
 	}
+
+	if len(hostNames) > 1 {
+		printSuccess("Task completed on %d hosts", len(hostNames))
+	} else {
+		printSuccess("Task completed")
+	}
+	return nil
+}
+
+// executeTask runs a referenced task (from before/after) with host mismatch warnings.
+func executeTask(cfg *Config, taskName string, task Task, parentHosts []string) error {
+	taskHosts := task.GetHosts()
+
+	// Check for host mismatch and warn
+	hasOverlap := false
+	for _, h := range taskHosts {
+		if slices.Contains(parentHosts, h) {
+			hasOverlap = true
+			break
+		}
+	}
+	if !hasOverlap {
+		printWarning("Note: %s runs on different host(s): %s", taskName, strings.Join(taskHosts, ", "))
+	}
+
+	printTaskHeader(taskName)
+
+	for _, hostName := range taskHosts {
+		host, ok := cfg.Hosts[hostName]
+		if !ok {
+			return errorf("host %q not found in config", hostName)
+		}
+
+		if err := runTaskOnHost(host, hostName, task, len(taskHosts) > 1); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func runTaskOnHost(host Host, hostName string, task Task, showHostHeader bool) error {
 	if showHostHeader {
-		fmt.Printf("→ Running on %s...\n", hostName)
+		printHostHeader(hostName)
 	}
 
 	client, err := newSSHClient(host)
 	if err != nil {
-		return fmt.Errorf("ssh connection to %s failed: %w", hostName, err)
+		return errorf("ssh connection to %s failed: %w", hostName, err)
 	}
 	defer client.Close()
 
@@ -161,30 +231,122 @@ func runTaskOnHost(host Host, hostName string, task Task, showHostHeader bool) e
 		if task.Workdir != "" {
 			cmd = fmt.Sprintf("cd %s && %s", task.Workdir, step)
 		}
-		if showHostHeader {
-			fmt.Printf("  → [%d/%d] %s\n", i+1, len(task.Steps), step)
-		} else {
-			fmt.Printf("→ [%d/%d] %s\n", i+1, len(task.Steps), step)
-		}
+		printStep(i+1, len(task.Steps), step, showHostHeader)
 		if err := client.Run(cmd); err != nil {
-			return fmt.Errorf("step %d on %s failed: %w", i+1, hostName, err)
+			return errorf("step %d on %s failed: %w", i+1, hostName, err)
 		}
 	}
 
 	if showHostHeader {
-		fmt.Printf("  ✓ %s completed\n", hostName)
+		printStepDone(hostName)
 	}
 	return nil
 }
 
 func hostsAction(ctx context.Context, cmd *cli.Command) error {
-	cfg, err := loadConfig(cmd.String("config"))
+	cfg, err := loadConfig(cmd.String("config"), cmd.String("file"))
 	if err != nil {
 		return err
 	}
 
 	for name, host := range cfg.Hosts {
-		fmt.Printf("%s → %s@%s:%d\n", name, host.User, host.Address, host.Port)
+		source := cfg.HostSources[name]
+		override := source == "local (overrides global)"
+		printHost(name, host.User, host.Address, host.Port, source, override)
 	}
+	return nil
+}
+
+func tasksAction(ctx context.Context, cmd *cli.Command) error {
+	cfg, err := loadConfig(cmd.String("config"), cmd.String("file"))
+	if err != nil {
+		return err
+	}
+
+	for name, task := range cfg.Tasks {
+		hosts := strings.Join(task.GetHosts(), ", ")
+		source := cfg.TaskSources[name]
+
+		var extras []string
+		if len(task.Before) > 0 {
+			extras = append(extras, fmt.Sprintf("before: %s", strings.Join(task.Before, ", ")))
+		}
+		if len(task.After) > 0 {
+			extras = append(extras, fmt.Sprintf("after: %s", strings.Join(task.After, ", ")))
+		}
+
+		info := fmt.Sprintf("hosts: %s, steps: %d", hosts, len(task.Steps))
+		if len(extras) > 0 {
+			info += ", " + strings.Join(extras, ", ")
+		}
+
+		override := source == "local (overrides global)"
+		printTask(name, info, source, override)
+	}
+	return nil
+}
+
+func checkConfigAction(ctx context.Context, cmd *cli.Command) error {
+	cfg, err := loadConfig(cmd.String("config"), cmd.String("file"))
+	if err != nil {
+		return err
+	}
+
+	hasErrors := false
+
+	// Check hosts
+	printSection("Hosts")
+	for name, host := range cfg.Hosts {
+		if host.Address == "" {
+			printInvalid(name)
+			printIssue("missing address")
+			hasErrors = true
+		} else {
+			printValid("%s (%s@%s:%d)", name, host.User, host.Address, host.Port)
+		}
+	}
+
+	// Check tasks
+	fmt.Println()
+	printSection("Tasks")
+	for name, task := range cfg.Tasks {
+		var issues []string
+
+		// Basic validation
+		if err := task.Validate(name); err != nil {
+			issues = append(issues, err.Error())
+		}
+
+		// Check before/after references
+		if err := task.ValidateRefs(name, cfg.Tasks); err != nil {
+			issues = append(issues, err.Error())
+		}
+
+		// Check host references
+		for _, hostName := range task.GetHosts() {
+			if _, ok := cfg.Hosts[hostName]; !ok {
+				issues = append(issues, fmt.Sprintf("host %q not found", hostName))
+			}
+		}
+
+		if len(issues) > 0 {
+			printInvalid(name)
+			for _, issue := range issues {
+				printIssue(issue)
+			}
+			hasErrors = true
+		} else {
+			hosts := strings.Join(task.GetHosts(), ", ")
+			printValid("%s (hosts: %s, steps: %d)", name, hosts, len(task.Steps))
+		}
+	}
+
+	fmt.Println()
+	if hasErrors {
+		printWarning("Configuration has errors")
+		return errorf("configuration validation failed")
+	}
+
+	printSuccess("Configuration OK")
 	return nil
 }
