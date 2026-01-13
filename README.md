@@ -85,10 +85,12 @@ gosctl run deploy
 
 gosctl loads configuration hierarchically:
 
-| File | Purpose |
-|------|---------|
-| `~/.config/gosctl/sctl.toml` | Global hosts and tasks |
-| `./sctl.toml` | Project-specific tasks (overrides global) |
+| Order | File | Purpose |
+|-------|------|---------|
+| 1 | `~/.config/gosctl/sctl.toml` | Global hosts and tasks |
+| 2 | `./sctl.toml` | Project-specific hosts and tasks |
+
+**Merge behavior:** Both files can define hosts and tasks. Local definitions override global ones with the same name. This allows you to define shared hosts globally and project-specific tasks (or host overrides) locally.
 
 ### Host options
 
@@ -105,13 +107,20 @@ password = "secret"        # Optional, not recommended
 
 ```toml
 [tasks.mytask]
-host = "myserver"          # Required: host name from config
+host = "myserver"          # Single host
 workdir = "/app"           # Optional: working directory for all steps
 steps = [                  # Required: commands to execute
     "echo 'Hello'",
     "date",
 ]
+
+[tasks.deploy-all]
+hosts = ["web1", "web2"]   # Multiple hosts (runs sequentially)
+workdir = "/var/www/app"
+steps = ["git pull", "systemctl restart app"]
 ```
+
+> **Note:** Use either `host` or `hosts`, not both.
 
 ## Commands
 
@@ -119,6 +128,7 @@ steps = [                  # Required: commands to execute
 |---------|-------------|
 | `gosctl exec -H <host> "<cmd>"` | Execute a single command on a host |
 | `gosctl run <task>` | Run a predefined task |
+| `gosctl run <task> -H host1 -H host2` | Run task on specific hosts (overrides config) |
 | `gosctl hosts` | List all configured hosts |
 | `gosctl completion <shell>` | Generate shell completions |
 

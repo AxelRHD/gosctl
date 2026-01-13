@@ -24,8 +24,34 @@ type Host struct {
 
 type Task struct {
 	Host    string   `toml:"host"`
+	Hosts   []string `toml:"hosts"`
 	Workdir string   `toml:"workdir"`
 	Steps   []string `toml:"steps"`
+}
+
+// GetHosts returns the target hosts for this task.
+func (t Task) GetHosts() []string {
+	if len(t.Hosts) > 0 {
+		return t.Hosts
+	}
+	if t.Host != "" {
+		return []string{t.Host}
+	}
+	return nil
+}
+
+// Validate checks the task configuration for errors.
+func (t Task) Validate(name string) error {
+	if t.Host != "" && len(t.Hosts) > 0 {
+		return fmt.Errorf("task %q: use either 'host' or 'hosts', not both", name)
+	}
+	if t.Host == "" && len(t.Hosts) == 0 {
+		return fmt.Errorf("task %q: missing 'host' or 'hosts'", name)
+	}
+	if len(t.Steps) == 0 {
+		return fmt.Errorf("task %q: missing 'steps'", name)
+	}
+	return nil
 }
 
 func loadConfig(path string) (*Config, error) {

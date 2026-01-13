@@ -49,7 +49,14 @@ func main() {
 				Name:      "run",
 				Usage:     "Run a predefined task",
 				ArgsUsage: "[task]",
-				Action:    runAction,
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:    "host",
+						Aliases: []string{"H"},
+						Usage:   "target host (can be specified multiple times)",
+					},
+				},
+				Action: runAction,
 			},
 			{
 				Name:   "hosts",
@@ -107,14 +114,45 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("task %q not found in config", taskName)
 	}
 
-	host, ok := cfg.Hosts[task.Host]
-	if !ok {
-		return fmt.Errorf("host %q not found in config", task.Host)
+	// Validate task config
+	if err := task.Validate(taskName); err != nil {
+		return err
+	}
+
+	// Use CLI hosts if provided, otherwise use task config
+	hostNames := cmd.StringSlice("host")
+	if len(hostNames) == 0 {
+		hostNames = task.GetHosts()
+	}
+
+	// Run on each host sequentially
+	for _, hostName := range hostNames {
+		host, ok := cfg.Hosts[hostName]
+		if !ok {
+			return fmt.Errorf("host %q not found in config", hostName)
+		}
+
+		if err := runTaskOnHost(host, hostName, task, len(hostNames) > 1); err != nil {
+			return err
+		}
+	}
+
+	if len(hostNames) > 1 {
+		fmt.Printf("✓ Task completed on %d hosts\n", len(hostNames))
+	} else {
+		fmt.Println("✓ Task completed")
+	}
+	return nil
+}
+
+func runTaskOnHost(host Host, hostName string, task Task, showHostHeader bool) error {
+	if showHostHeader {
+		fmt.Printf("→ Running on %s...\n", hostName)
 	}
 
 	client, err := newSSHClient(host)
 	if err != nil {
-		return fmt.Errorf("ssh connection failed: %w", err)
+		return fmt.Errorf("ssh connection to %s failed: %w", hostName, err)
 	}
 	defer client.Close()
 
@@ -123,13 +161,19 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 		if task.Workdir != "" {
 			cmd = fmt.Sprintf("cd %s && %s", task.Workdir, step)
 		}
-		fmt.Printf("→ [%d/%d] %s\n", i+1, len(task.Steps), step)
+		if showHostHeader {
+			fmt.Printf("  → [%d/%d] %s\n", i+1, len(task.Steps), step)
+		} else {
+			fmt.Printf("→ [%d/%d] %s\n", i+1, len(task.Steps), step)
+		}
 		if err := client.Run(cmd); err != nil {
-			return fmt.Errorf("step %d failed: %w", i+1, err)
+			return fmt.Errorf("step %d on %s failed: %w", i+1, hostName, err)
 		}
 	}
 
-	fmt.Println("✓ Task completed")
+	if showHostHeader {
+		fmt.Printf("  ✓ %s completed\n", hostName)
+	}
 	return nil
 }
 
