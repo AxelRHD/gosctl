@@ -1,29 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="400" height="120">
   <defs>
-    <!-- Nord Aurora gradient for arrow -->
     <linearGradient id="arrow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" style="stop-color:#a3be8c"/>
-      <stop offset="100%" style="stop-color:#88c0d0"/>
+      <stop offset="100%" style="stop-color:#8fbcbb"/>
     </linearGradient>
   </defs>
 
-  <!-- Terminal icon - Nord Frost blue -->
-  <rect x="5" y="10" width="45" height="35" rx="5" fill="#3b4252" stroke="#88c0d0" stroke-width="2"/>
-  <text x="12" y="33" font-family="monospace" font-size="16" font-weight="bold" fill="#a3be8c">$_</text>
+  <!-- Terminal icon -->
+  <rect x="5" y="10" width="45" height="35" rx="5" fill="#2e3440" stroke="#5e81ac" stroke-width="2"/>
+  <text x="11" y="33" font-family="monospace" font-size="16" font-weight="bold" fill="#a3be8c">$</text>
+  <text x="23" y="33" font-family="monospace" font-size="16" font-weight="bold" fill="#d08770">_</text>
 
-  <!-- Arrow - Aurora green to Frost -->
+  <!-- Arrow -->
   <path d="M55 27 L72 27 M66 21 L73 27 L66 33" stroke="url(#arrow-grad)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Server icon - stacked with colorful LEDs -->
-  <rect x="78" y="10" width="32" height="10" rx="2" fill="#3b4252" stroke="#81a1c1" stroke-width="1.5"/>
-  <rect x="78" y="23" width="32" height="10" rx="2" fill="#3b4252" stroke="#81a1c1" stroke-width="1.5"/>
-  <rect x="78" y="36" width="32" height="10" rx="2" fill="#3b4252" stroke="#81a1c1" stroke-width="1.5"/>
+  <!-- Server icon -->
+  <rect x="78" y="10" width="32" height="10" rx="2" fill="#2e3440" stroke="#4c566a" stroke-width="1.5"/>
+  <rect x="78" y="23" width="32" height="10" rx="2" fill="#2e3440" stroke="#4c566a" stroke-width="1.5"/>
+  <rect x="78" y="36" width="32" height="10" rx="2" fill="#2e3440" stroke="#4c566a" stroke-width="1.5"/>
 
-  <!-- Server LEDs - Aurora colors -->
-  <circle cx="104" cy="15" r="2" fill="#a3be8c"/>
-  <circle cx="104" cy="28" r="2" fill="#ebcb8b"/>
-  <circle cx="104" cy="41" r="2" fill="#88c0d0"/>
+  <!-- Server LEDs - distinct Aurora colors -->
+  <circle cx="104" cy="15" r="2.5" fill="#a3be8c"/>
+  <circle cx="104" cy="28" r="2.5" fill="#ebcb8b"/>
+  <circle cx="104" cy="41" r="2.5" fill="#bf616a"/>
 
-  <!-- Text - Snow Storm -->
-  <text x="118" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="600" fill="#eceff4">gosctl</text>
+  <!-- Text with color accent -->
+  <text x="118" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="600">
+    <tspan fill="#88c0d0">go</tspan><tspan fill="#eceff4">sctl</tspan>
+  </text>
 </svg>
