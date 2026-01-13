@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="gosctl logo" width="400">
+  <img src="gosctl-logo.png" alt="gosctl logo">
 </p>
 
 <h1 align="center">gosctl</h1>
