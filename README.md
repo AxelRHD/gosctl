@@ -1,9 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/AxelRHD/gosctl/main/logo.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/AxelRHD/gosctl/main/logo.svg">
-    <img src="https://raw.githubusercontent.com/AxelRHD/gosctl/main/logo.svg" alt="gosctl logo" width="400">
-  </picture>
+  <img src="logo.png" alt="gosctl logo" width="400">
 </p>
 
 <h1 align="center">gosctl</h1>
