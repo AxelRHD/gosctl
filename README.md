@@ -32,11 +32,15 @@ just deploy  # Builds and installs to ~/.local/bin with shell completions
 
 ### 1. Define your hosts
 
-Create `~/.config/gosctl/sctl.toml`:
+Create `~/.config/gosctl/sctl.toml` for global hosts, or `./sctl.toml` for project-specific ones:
 
 ```toml
-[hosts.web]
-address = "web.example.com"
+[hosts.web1]
+address = "web1.example.com"
+user = "deploy"
+
+[hosts.web2]
+address = "web2.example.com"
 user = "deploy"
 
 [hosts.db]
@@ -48,7 +52,7 @@ port = 2222
 ### 2. Run ad-hoc commands
 
 ```bash
-gosctl exec -H web "uptime"
+gosctl exec -H web1 "uptime"
 gosctl exec -H db "systemctl status postgresql"
 ```
 
@@ -58,7 +62,7 @@ Create `sctl.toml` in your project directory:
 
 ```toml
 [tasks.deploy]
-host = "web"
+hosts = ["web1", "web2"]
 workdir = "/var/www/myapp"
 steps = [
     "git pull origin main",
@@ -67,7 +71,7 @@ steps = [
 ]
 
 [tasks.logs]
-host = "web"
+host = "web1"
 steps = ["journalctl --user -u myapp -f"]
 ```
 
@@ -75,10 +79,17 @@ steps = ["journalctl --user -u myapp -f"]
 
 ```bash
 gosctl run deploy
-# → [1/3] git pull origin main
-# → [2/3] npm install --production
-# → [3/3] systemctl --user restart myapp
-# ✓ Task completed
+# → Running on web1...
+#   → [1/3] git pull origin main
+#   → [2/3] npm install --production
+#   → [3/3] systemctl --user restart myapp
+#   ✓ web1 completed
+# → Running on web2...
+#   → [1/3] git pull origin main
+#   → [2/3] npm install --production
+#   → [3/3] systemctl --user restart myapp
+#   ✓ web2 completed
+# ✓ Task completed on 2 hosts
 ```
 
 ## Configuration
