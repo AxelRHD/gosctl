@@ -145,6 +145,8 @@ gosctl completion bash > ~/.local/share/bash-completion/completions/gosctl
 gosctl completion zsh > ~/.local/share/zsh/site-functions/_gosctl
 ```
 
+Or use `just deploy-completion` (default: fish) or `just deploy-completion bash`.
+
 ## License
 
 MIT
