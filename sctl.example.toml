@@ -1,0 +1,29 @@
+# gosctl configuration
+# Copy to ~/.config/gosctl/sctl.toml (global) or ./sctl.toml (local)
+
+[hosts.webserver]
+address = "web.example.com"
+user = "deploy"
+# port = 22                        # Default: 22
+# key_file = "~/.ssh/id_ed25519"   # Optional, uses SSH agent or default keys
+
+[hosts.dbserver]
+address = "db.example.com"
+port = 2222
+user = "admin"
+key_file = "/path/to/special/key"
+
+[tasks.deploy]
+host = "webserver"
+workdir = "/var/www/app"
+steps = [
+    "git pull origin main",
+    "systemctl --user restart app",
+]
+
+[tasks.backup-db]
+host = "dbserver"
+steps = [
+    "pg_dump mydb > /backup/mydb-$(date +%Y%m%d).sql",
+    "gzip /backup/mydb-$(date +%Y%m%d).sql",
+]
