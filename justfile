@@ -1,7 +1,7 @@
 app_name := "gosctl"
 bin_dir := "bin"
 bin_file := bin_dir / app_name
-git_version := `printf "%s%s" "$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" "$([ -z "$(git status --porcelain 2>/dev/null)" ] || echo "-dirty")"`
+git_version := `git describe --always --dirty --abbrev=7 2>/dev/null || echo "unknown"`
 
 [private]
 default:
@@ -37,24 +37,18 @@ test:
 
 # Build binary
 [group('build')]
-build:
+build version="dev":
     @mkdir -p {{bin_dir}}
-    @go build -o {{bin_file}} .
-
-# Build release binary with version
-[group('build')]
-build-release version="0.1.0":
-    @mkdir -p {{bin_dir}}
-    @go build -ldflags "-X main.version=v{{version}}" -o {{bin_file}} .
+    @go build -ldflags "-X 'main.appVersion=v{{version}}' -X 'main.gitVersion={{git_version}}'" -o {{bin_file}} .
 
 # Build binaries for all platforms
 [group('build')]
 build-all version="0.1.0":
     @mkdir -p {{bin_dir}}
-    @GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=v{{version}}" -o {{bin_dir}}/{{app_name}}-linux-amd64 .
-    @GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=v{{version}}" -o {{bin_dir}}/{{app_name}}-linux-arm64 .
-    @GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=v{{version}}" -o {{bin_dir}}/{{app_name}}-darwin-amd64 .
-    @GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=v{{version}}" -o {{bin_dir}}/{{app_name}}-darwin-arm64 .
+    @GOOS=linux GOARCH=amd64 go build -ldflags "-X 'main.appVersion=v{{version}}' -X 'main.gitVersion={{git_version}}'" -o {{bin_dir}}/{{app_name}}-linux-amd64 .
+    @GOOS=linux GOARCH=arm64 go build -ldflags "-X 'main.appVersion=v{{version}}' -X 'main.gitVersion={{git_version}}'" -o {{bin_dir}}/{{app_name}}-linux-arm64 .
+    @GOOS=darwin GOARCH=amd64 go build -ldflags "-X 'main.appVersion=v{{version}}' -X 'main.gitVersion={{git_version}}'" -o {{bin_dir}}/{{app_name}}-darwin-amd64 .
+    @GOOS=darwin GOARCH=arm64 go build -ldflags "-X 'main.appVersion=v{{version}}' -X 'main.gitVersion={{git_version}}'" -o {{bin_dir}}/{{app_name}}-darwin-arm64 .
 
 # ============================================================
 # Install
@@ -62,13 +56,8 @@ build-all version="0.1.0":
 
 # Install locally (go install)
 [group('install')]
-install:
-    @go install .
-
-# Install with version
-[group('install')]
-install-release version="0.1.0":
-    @go install -ldflags "-X main.version=v{{version}}" .
+install version="dev":
+    @go install -ldflags "-X 'main.appVersion=v{{version}}' -X 'main.gitVersion={{git_version}}'" .
 
 # ============================================================
 # Deploy
@@ -76,7 +65,7 @@ install-release version="0.1.0":
 
 # Deploy binary and completions locally
 [group('deploy')]
-deploy shell="fish": build (deploy-bin) (deploy-completion shell)
+deploy version="dev" shell="fish": (build version) (deploy-bin) (deploy-completion shell)
 
 # Copy binary to ~/.local/bin
 [group('deploy')]

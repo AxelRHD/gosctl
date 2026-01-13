@@ -8,13 +8,20 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-var version = "dev"
+var (
+	appVersion = "dev"
+	gitVersion = "unknown"
+)
 
 func main() {
+	cli.VersionPrinter = func(cmd *cli.Command) {
+		fmt.Printf("gosctl %s (git: %s)\n", appVersion, gitVersion)
+	}
+
 	app := &cli.Command{
 		Name:                  "gosctl",
 		Usage:                 "Remote service control over SSH",
-		Version:               version,
+		Version:               appVersion,
 		EnableShellCompletion: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
