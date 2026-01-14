@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -76,6 +77,21 @@ func main() {
 				Name:   "check-config",
 				Usage:  "Validate configuration files",
 				Action: checkConfigAction,
+			},
+			{
+				Name:  "init",
+				Usage: "Create a sample configuration file",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "local",
+						Usage: "create ./sctl.toml instead of global config",
+					},
+					&cli.BoolFlag{
+						Name:  "force",
+						Usage: "overwrite existing file",
+					},
+				},
+				Action: initAction,
 			},
 		},
 	}
@@ -282,6 +298,124 @@ func tasksAction(ctx context.Context, cmd *cli.Command) error {
 	}
 	return nil
 }
+
+func initAction(ctx context.Context, cmd *cli.Command) error {
+	local := cmd.Bool("local")
+	force := cmd.Bool("force")
+
+	var path string
+	var content string
+
+	if local {
+		path = "sctl.toml"
+		content = localConfigTemplate
+	} else {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return errorf("could not determine home directory: %w", err)
+		}
+		dir := filepath.Join(home, ".config", "gosctl")
+		path = filepath.Join(dir, "sctl.toml")
+
+		// Create directory if it doesn't exist
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return errorf("could not create config directory: %w", err)
+		}
+		content = globalConfigTemplate
+	}
+
+	// Check if file already exists
+	if _, err := os.Stat(path); err == nil {
+		if !force {
+			printWarning("File already exists: %s", path)
+			fmt.Println("Use --force to overwrite")
+			return nil
+		}
+		printWarning("Overwriting existing file: %s", path)
+	}
+
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return errorf("could not write config file: %w", err)
+	}
+
+	printSuccess("Created %s", path)
+	return nil
+}
+
+const globalConfigTemplate = `# gosctl global configuration
+# Hosts defined here are available from anywhere on your system.
+# Location: ~/.config/gosctl/sctl.toml
+
+# ============================================================================
+# HOSTS
+# ============================================================================
+# Define your remote hosts here. These can be referenced by name in tasks.
+
+[hosts.server1]
+address = "server1.example.com"
+user = "admin"
+# port = 22                    # default: 22
+# key_file = "~/.ssh/id_rsa"   # default: ssh-agent
+
+[hosts.server2]
+address = "server2.example.com"
+user = "admin"
+
+# ============================================================================
+# GLOBAL TASKS
+# ============================================================================
+# Tasks defined here are available from anywhere on your system.
+# Useful for common operations you run across projects.
+
+[tasks.system-check]
+hosts = ["server1"]
+steps = [
+    "uptime",
+    "df -h",
+    "free -m",
+]
+
+[tasks.update-system]
+hosts = ["server1"]
+steps = [
+    "sudo apt update",
+    "sudo apt upgrade -y",
+]
+`
+
+const localConfigTemplate = `# gosctl project configuration
+# Tasks defined here are specific to this project.
+# Location: ./sctl.toml (in your project directory)
+#
+# Hosts from ~/.config/gosctl/sctl.toml are automatically available.
+
+# ============================================================================
+# PROJECT TASKS
+# ============================================================================
+
+[tasks.deploy]
+hosts = ["server1"]           # Reference hosts from global config
+workdir = "/var/www/myapp"
+before = ["backup"]           # Run backup task first
+steps = [
+    "git pull origin main",
+    "npm install",
+    "npm run build",
+    "systemctl restart myapp",
+]
+
+[tasks.backup]
+hosts = ["server1"]
+steps = [
+    "tar -czf /backups/myapp-$(date +%Y%m%d).tar.gz /var/www/myapp",
+]
+
+[tasks.logs]
+hosts = ["server1"]
+steps = [
+    "journalctl -u myapp -n 50 --no-pager",
+]
+`
 
 func checkConfigAction(ctx context.Context, cmd *cli.Command) error {
 	cfg, err := loadConfig(cmd.String("config"), cmd.String("file"))

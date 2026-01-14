@@ -124,7 +124,7 @@ func loadConfig(configPath, filePath string) (*Config, error) {
 
 	// Check if we have any config at all
 	if len(cfg.Hosts) == 0 && len(cfg.Tasks) == 0 {
-		return nil, fmt.Errorf("no config found (checked ./sctl.toml and ~/.config/gosctl/sctl.toml)")
+		return nil, fmt.Errorf("no config found (checked ./sctl.toml and ~/.config/gosctl/sctl.toml)\nRun 'gosctl init' to create a sample configuration")
 	}
 
 	applyDefaults(cfg)
